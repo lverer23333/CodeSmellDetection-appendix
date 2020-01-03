@@ -23,7 +23,8 @@ public class MySystem {
         else
         	generateSystem();
     }
-
+    
+    /**  */
     private void generateSystem() {
         ListIterator<ClassObject> classIterator1 = systemObject.getClassListIterator();
         while(classIterator1.hasNext()) {
@@ -94,7 +95,7 @@ public class MySystem {
     }
 
     private void generateSystemWithStaticMembers() {
-    	/** 下面这串目的是使用自定义的MyClass和MyAttribute对classMap赋值 */
+    	/** 下面这串目的是对自定义的类获得MyAttribute并添加到myClass，并添加到classMap */
     	// 这个循环，对class进行处理
         ListIterator<ClassObject> classIterator1 = systemObject.getClassListIterator();
         while(classIterator1.hasNext()) {
@@ -126,7 +127,7 @@ public class MySystem {
             classMap.put(co.getName(),myClass);
         }
         
-        /** 下面这串目的主要是 */
+        /** 下面这串目的主要是对用户自定义函数获得myMethod并添加到myClass，accessedAttribute（但目前没看到在哪儿有用） */
         // 这个循环，对class进行处理
         ListIterator<ClassObject> classIterator2 = systemObject.getClassListIterator();
         while(classIterator2.hasNext()) {
@@ -137,10 +138,11 @@ public class MySystem {
             ListIterator<MethodObject> methodIt = co.getMethodIterator();
             while(methodIt.hasNext()) {
             	MethodObject mo = methodIt.next();
+            	// 如果该函数不是下面三种函数类型（getter/setter/CollectionAdder)
             	if(systemObject.containsGetter(mo.generateMethodInvocation()) == null &&
             			systemObject.containsSetter(mo.generateMethodInvocation()) == null && systemObject.containsCollectionAdder(mo.generateMethodInvocation()) == null) {
             		MethodInvocationObject delegation = systemObject.containsDelegate(mo.generateMethodInvocation());
-            		if(delegation == null || (delegation != null && systemObject.getClassObject(delegation.getOriginClassName()) == null)) {
+            		if(delegation == null || (delegation != null && systemObject.getClassObject(delegation.getOriginClassName()) == null)) {//也不是委托函数
             			MyMethod myMethod = new MyMethod(mo.getClassName(),mo.getName(),
             					mo.getReturnType().toString(),mo.getParameterList());
             			if(mo.isAbstract())
@@ -153,7 +155,8 @@ public class MySystem {
             				myMethod.setMethodBody(myMethodBody);
             			}
             			myClass.addMethod(myMethod);
-            			ListIterator<MyAttributeInstruction> attributeInstructionIterator = myMethod.getAttributeInstructionIterator();
+            			//method内的变量
+            			ListIterator<MyAttributeInstruction> attributeInstructionIterator = myMethod.getAttributeInstructionIterator(); 
             			while(attributeInstructionIterator.hasNext()) {
             				MyAttributeInstruction myInstruction = attributeInstructionIterator.next();
             				MyClass ownerClass = classMap.get(myInstruction.getClassOrigin());

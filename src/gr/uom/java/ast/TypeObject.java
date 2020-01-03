@@ -114,16 +114,18 @@ public class TypeObject {
         return sb.toString();
     }
 
-    /** 提取为TypeObject */
+    /** 通过qualifiedName提取为TypeObject */
     public static TypeObject extractTypeObject(String qualifiedName) {
 		int arrayDimension = 0;
 		String generic = null;
+		// 对多个维度的，进行维度计算
 		if(qualifiedName.endsWith("[]")) {
 			while(qualifiedName.endsWith("[]")) {
 				qualifiedName = qualifiedName.substring(0, qualifiedName.lastIndexOf("[]"));
 				arrayDimension++;
 			}
 		}
+		// 对有<>的名字的，获取qualifiedName
 		if(qualifiedName.contains("<") && qualifiedName.contains(">")) {
 			generic = qualifiedName.substring(qualifiedName.indexOf("<"), qualifiedName.lastIndexOf(">")+1);
 			qualifiedName = qualifiedName.substring(0, qualifiedName.indexOf("<"));

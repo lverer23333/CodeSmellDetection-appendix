@@ -60,8 +60,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+
+/** 很重要的一个类，一定要先看懂！否则后面会逼着你反复看这个类（血的教训） */
 public class ASTReader {
 
+	// 注意这几个都是静态变量，因此相当于只执行了一次ASTReader的职责
 	private static SystemObject systemObject;
 	private static IJavaProject examinedProject;
 	public static final int JLS = AST.JLS4;
@@ -250,7 +253,7 @@ public class ASTReader {
         return parseAST(compilationUnit, iFile);
 	}
 
-	/** 解析当前文件中class的信息，具体不想看了反正是干这个工作的 */
+	/** 解析当前文件中class的信息 */
 	private List<ClassObject> parseAST(CompilationUnit compilationUnit, IFile iFile) {
 		ITextFileBufferManager bufferManager = FileBuffers.getTextFileBufferManager();
 		// 获取文件路径
@@ -264,15 +267,15 @@ public class ASTReader {
 		IDocument document = textFileBuffer.getDocument();
 		List<Comment> comments = compilationUnit.getCommentList();
 		List<ClassObject> classObjects = new ArrayList<ClassObject>();
-        List<AbstractTypeDeclaration> topLevelTypeDeclarations = compilationUnit.types();
-        // 将解析添加到typeDeclarations
+        List<AbstractTypeDeclaration> topLevelTypeDeclarations = compilationUnit.types();// 列表，每一项都是对一个类的描述
+        // 这个循环针对每个类的描述
         for(AbstractTypeDeclaration abstractTypeDeclaration : topLevelTypeDeclarations) {
-        	if(abstractTypeDeclaration instanceof TypeDeclaration) {
+        	if(abstractTypeDeclaration instanceof TypeDeclaration) {// 递归添加这个类的内部类
         		TypeDeclaration topLevelTypeDeclaration = (TypeDeclaration)abstractTypeDeclaration;
         		List<AbstractTypeDeclaration> typeDeclarations = new ArrayList<AbstractTypeDeclaration>();
         		typeDeclarations.add(topLevelTypeDeclaration);
         		typeDeclarations.addAll(getRecursivelyInnerTypes(topLevelTypeDeclaration));
-        		for(AbstractTypeDeclaration typeDeclaration : typeDeclarations) {
+        		for(AbstractTypeDeclaration typeDeclaration : typeDeclarations) {// 这个循环针对每个类的描述（在上一个循环的基础上加上了匿名内部类）
         			if(typeDeclaration instanceof TypeDeclaration) {
         				final ClassObject classObject = processTypeDeclaration(iFile, document, (TypeDeclaration)typeDeclaration, comments);
         				classObjects.add(classObject);
@@ -333,6 +336,7 @@ public class ASTReader {
 		return commentList;
 	}
 
+	/** 对class进行的处理 */
 	private ClassObject processTypeDeclaration(IFile iFile, IDocument document, TypeDeclaration typeDeclaration, List<Comment> comments) {
 		final ClassObject classObject = new ClassObject();
 		classObject.setIFile(iFile);
@@ -368,6 +372,7 @@ public class ASTReader {
 		if((modifiers & Modifier.STATIC) != 0)
 			classObject.setStatic(true);
 		
+		// 获取父类(继承)
 		Type superclassType = typeDeclaration.getSuperclassType();
 		if(superclassType != null) {
 			ITypeBinding binding = superclassType.resolveBinding();
@@ -376,6 +381,7 @@ public class ASTReader {
 			classObject.setSuperclass(typeObject);
 		}
 		
+		// 获取实现类(implement)
 		List<Type> superInterfaceTypes = typeDeclaration.superInterfaceTypes();
 		for(Type interfaceType : superInterfaceTypes) {
 			ITypeBinding binding = interfaceType.resolveBinding();
@@ -384,11 +390,13 @@ public class ASTReader {
 			classObject.addInterface(typeObject);
 		}
 		
+		// 获取成员变量
 		FieldDeclaration[] fieldDeclarations = typeDeclaration.getFields();
 		for(FieldDeclaration fieldDeclaration : fieldDeclarations) {
 			processFieldDeclaration(classObject, fieldDeclaration);
 		}
 		
+		// 获取方法
 		MethodDeclaration[] methodDeclarations = typeDeclaration.getMethods();
 		for(MethodDeclaration methodDeclaration : methodDeclarations) {
 			processMethodDeclaration(classObject, methodDeclaration);
@@ -453,6 +461,7 @@ public class ASTReader {
 		return classObject;
 	}
 
+	/** 获取成员变量的描述 */
 	private void processFieldDeclaration(final ClassObject classObject, FieldDeclaration fieldDeclaration) {
 		Type fieldType = fieldDeclaration.getType();
 		ITypeBinding binding = fieldType.resolveBinding();
@@ -493,6 +502,7 @@ public class ASTReader {
 		}
 	}
 
+	/**获取方法的描述*/
 	private void processMethodDeclaration(final ClassObject classObject, MethodDeclaration methodDeclaration) {
 		String methodName = methodDeclaration.getName().getIdentifier();
 		final ConstructorObject constructorObject = new ConstructorObject();
@@ -501,7 +511,8 @@ public class ASTReader {
 		constructorObject.setClassName(classObject.getName());
 		int methodDeclarationStartPosition = methodDeclaration.getStartPosition();
 		int methodDeclarationEndPosition = methodDeclarationStartPosition + methodDeclaration.getLength();
-		for(CommentObject comment : classObject.commentList) {
+		// 获取在方法内的评论
+		for(CommentObject comment : classObject.commentList) { 
 			int commentStartPosition = comment.getStartPosition();
 			int commentEndPosition = commentStartPosition + comment.getLength();
 			if(methodDeclarationStartPosition <= commentStartPosition && methodDeclarationEndPosition >= commentEndPosition) {
@@ -554,12 +565,14 @@ public class ASTReader {
 			constructorObject.addParameter(parameterObject);
 		}
 		
+		// 方法的body
 		Block methodBody = methodDeclaration.getBody();
 		if(methodBody != null) {
 			MethodBodyObject methodBodyObject = new MethodBodyObject(methodBody);
 			constructorObject.setMethodBody(methodBodyObject);
 		}
 		
+		// 匿名内部类
 		for(AnonymousClassDeclarationObject anonymous : constructorObject.getAnonymousClassDeclarations()) {
 			anonymous.setClassObject(classObject);
 			AnonymousClassDeclaration anonymousClassDeclaration = anonymous.getAnonymousClassDeclaration();
@@ -574,11 +587,15 @@ public class ASTReader {
 			}
 		}
 		
+		// 构造函数
 		if(methodDeclaration.isConstructor()) {
 			classObject.addConstructor(constructorObject);
 		}
+		// 非构造函数
 		else {
 			MethodObject methodObject = new MethodObject(constructorObject);
+			
+			// 方法前的限定词，如public static
 			List<IExtendedModifier> extendedModifiers = methodDeclaration.modifiers();
 			for(IExtendedModifier extendedModifier : extendedModifiers) {
 				if(extendedModifier.isAnnotation()) {
@@ -589,6 +606,8 @@ public class ASTReader {
 					}
 				}
 			}
+			
+			// 对返回值的处理
 			Type returnType = methodDeclaration.getReturnType2();
 			ITypeBinding binding = returnType.resolveBinding();
 			String qualifiedName = binding.getQualifiedName();
@@ -603,8 +622,12 @@ public class ASTReader {
 				methodObject.setSynchronized(true);
 			if((methodModifiers & Modifier.NATIVE) != 0)
 				methodObject.setNative(true);
-			
+			// 把方法添加到class中
 			classObject.addMethod(methodObject);
+			
+			// 判断方法是不是以下四种类型，如果是的话则在函数中增加对应的属性
+			
+			// 如果该函数为getter函数，就将函数本身的MethodInvocation和其get的变量作为fieldInstruction，下面的几种函数同理
 			FieldInstructionObject fieldInstruction = methodObject.isGetter();
 			if(fieldInstruction != null)
 				systemObject.addGetter(methodObject.generateMethodInvocation(), fieldInstruction);

@@ -127,6 +127,7 @@ public class SystemObject {
     	delegateMap.put(methodInvocation, delegation);
     }
     
+    /** 获取getterMap中MethodInvocationObject对应的FieldInstructionObject */
     public FieldInstructionObject containsGetter(MethodInvocationObject methodInvocation) {
     	return getterMap.get(methodInvocation);
     }
