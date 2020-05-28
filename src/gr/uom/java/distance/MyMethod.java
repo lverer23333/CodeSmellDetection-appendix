@@ -194,6 +194,7 @@ public class MyMethod extends Entity {
         return sb.toString();
     }
 
+    /** 获取这个方法的entity的set，包含attribute和method（都是名字string） */
     public Set<String> getEntitySet() {
     	Set<String> set = new HashSet<String>();
         ListIterator<MyAttributeInstruction> attributeInstructionIterator = getAttributeInstructionIterator();

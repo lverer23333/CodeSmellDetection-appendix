@@ -23,13 +23,17 @@ import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jface.preference.IPreferenceStore;
 
 public class DistanceMatrix {
+	/** map: method的名字，method的id（第几个）*/
     private Map<String,Integer> entityIndexMap;
+    /** map: class的名字，class的id（第几个）*/
     private Map<String,Integer> classIndexMap;
+    /** 用于存放method实体*/
     private List<Entity> entityList;
+    /** 用于存放class实体*/
     private List<MyClass> classList;
-    //holds the entity set of each entity
+    /** map: method的名字，method内所含的实体（包括attribute和method)*/
     private Map<String,Set<String>> entityMap;
-    //holds the entity set of each class
+    /** map: class的名字，class内所含的实体（包括attribute和method)*/
     private Map<String,Set<String>> classMap;
     private MySystem system;
     private int maximumNumberOfSourceClassMembersAccessedByMoveMethodCandidate;
@@ -37,7 +41,6 @@ public class DistanceMatrix {
     //2019026 将私有改为公有
     public int maximumNumberOfSourceClassMembersAccessedByExtractClassCandidate; 
     
-	//澧炴坊涓や釜鍊�
     
 	private String[] entityNames;
 	private String[] classNames;
@@ -49,19 +52,24 @@ public class DistanceMatrix {
 
 	public DistanceMatrix(MySystem system) {
         this.system = system;
-        entityIndexMap = new LinkedHashMap<String,Integer>();
-        classIndexMap = new LinkedHashMap<String,Integer>();
-        entityList = new ArrayList<Entity>();
-        classList = new ArrayList<MyClass>();
-        entityMap = new LinkedHashMap<String,Set<String>>();
-        classMap = new LinkedHashMap<String,Set<String>>();
+        entityIndexMap = new LinkedHashMap<String,Integer>();	
+        classIndexMap = new LinkedHashMap<String,Integer>();	
+        entityList = new ArrayList<Entity>();	
+        classList = new ArrayList<MyClass>();	
+        entityMap = new LinkedHashMap<String,Set<String>>();	
+        classMap = new LinkedHashMap<String,Set<String>>();	
+        // jface.jar中提供，IPreferenceStore可以保存和获取PreferencePage（即eclipse中的首选项）的设置,可以通过Activator获取IPreferenceStore
         IPreferenceStore store = Activator.getDefault().getPreferenceStore();
+        // 使用store的特性获取以下两个值
 		this.maximumNumberOfSourceClassMembersAccessedByMoveMethodCandidate = store.getInt(PreferenceConstants.P_MAXIMUM_NUMBER_OF_SOURCE_CLASS_MEMBERS_ACCESSED_BY_MOVE_METHOD_CANDIDATE);
 		this.maximumNumberOfSourceClassMembersAccessedByExtractClassCandidate = store.getInt(PreferenceConstants.P_MAXIMUM_NUMBER_OF_SOURCE_CLASS_MEMBERS_ACCESSED_BY_EXTRACT_CLASS_CANDIDATE);
 //		generateDistances();
     }
+	
+	/** 计算所有method到所有class的距离，并将其存储在distanceMatrix */
     public void generateDistances(IProgressMonitor monitor) {
     	Iterator<MyClass> classIt = system.getClassIterator();
+    	// 这一个循环，针对class
         while(classIt.hasNext()) {
             MyClass myClass = classIt.next();
 //            ListIterator<MyAttribute> attributeIterator = myClass.getAttributeIterator();
@@ -72,11 +80,13 @@ public class DistanceMatrix {
 //                    entityMap.put(attribute.toString(),attribute.getEntitySet());
 //                }
 //            }
+            
+            // 这一个循环，针对method
             ListIterator<MyMethod> methodIterator = myClass.getMethodIterator();
             while(methodIterator.hasNext()) {
                 MyMethod method = methodIterator.next();
                 entityList.add(method);
-                entityMap.put(method.toString(),method.getEntitySet());
+                entityMap.put(method.toString(),method.getEntitySet());	
             }
             classList.add(myClass);
             classMap.put(myClass.getName(),myClass.getEntitySet());
@@ -86,14 +96,16 @@ public class DistanceMatrix {
         classNames = new String[classList.size()];
         distanceMatrix = new Double[entityList.size()][classList.size()];
         accessMatrix = new Integer[entityList.size()][classList.size()];
+        // 用于存放systemEntity
         systemEntityPlacement = new SystemEntityPlacement();
         
         if(monitor != null)
         	monitor.beginTask("Calculating distances", entityList.size()*classList.size());
-        int i = 0;
+        int i = 0; // method的计数器
         for(Entity entity : entityList) {
             entityNames[i] = entity.toString();
             entityIndexMap.put(entityNames[i],i);
+            // class的计数器，对于每个method，计算与其相关的class
             int j = 0;
             for(MyClass myClass : classList) {
             	if(monitor != null && monitor.isCanceled())
@@ -101,13 +113,22 @@ public class DistanceMatrix {
                 classNames[j] = myClass.getName();
                 if(!classIndexMap.containsKey(classNames[j]))
                     classIndexMap.put(classNames[j],j);
+                // 获取这个class对应的ClassEntityPlacement
                 ClassEntityPlacement entityPlacement = systemEntityPlacement.getClassEntityPlacement(myClass.getName());
+                // 如果method在该class内，使用第一条公式计算距离（相较第二条，多了补集的运算）
                 if(entity.getClassOrigin().equals(myClass.getName())) {
+                	// Sc
                     Set<String> tempClassSet = new HashSet<String>();
                     tempClassSet.addAll(classMap.get(classNames[j]));
+                    // 计算时不含m本身的
                     tempClassSet.remove(entityNames[i]);
+                    
+                    // Sm
                     Set<String> entitySet = entityMap.get(entityNames[i]);
+                    
+                    // 分母
                     Set<String> intersection = DistanceCalculator.intersection(entitySet,tempClassSet);
+                    // 分子
                     Set<String> union = DistanceCalculator.union(entitySet,tempClassSet);
                     accessMatrix[i][j] = intersection.size();
                     if(union.isEmpty())
@@ -115,9 +136,11 @@ public class DistanceMatrix {
                     else
                     	distanceMatrix[i][j] = 1.0 - (double)intersection.size()/(double)union.size();
                     //distanceMatrix[i][j] = DistanceCalculator.getDistance(entityMap.get(entityNames[i]),tempClassSet);
+                    // 用innerSum和innerEntity记录这个class和method的inner关联数
                     entityPlacement.setInnerSum(entityPlacement.getInnerSum() + distanceMatrix[i][j]);
                     entityPlacement.setNumberOfInnerEntities(entityPlacement.getNumberOfInnerEntities() + 1);
                 }
+                // 如果method不在该class内，使用第二条公式计算距离
                 else {
                     Set<String> entitySet = entityMap.get(entityNames[i]);
                     Set<String> classSet = classMap.get(classNames[j]);
@@ -129,6 +152,7 @@ public class DistanceMatrix {
                     else
                     	distanceMatrix[i][j] = 1.0 - (double)intersection.size()/(double)union.size();
                 	//distanceMatrix[i][j] = DistanceCalculator.getDistance(entityMap.get(entityNames[i]),classMap.get(classNames[j]));
+                    // 用outerSum和outerEntity记录这个class和method的inner关联数
                     entityPlacement.setOuterSum(entityPlacement.getOuterSum() + distanceMatrix[i][j]);
                     entityPlacement.setNumberOfOuterEntities(entityPlacement.getNumberOfOuterEntities() + 1);
                 }

@@ -24,8 +24,9 @@ public class MySystem {
         	generateSystem();
     }
     
-    /**  */
+    /** 生成过滤掉静态变量的system */
     private void generateSystem() {
+    	/** 下面这串目的是对自定义的类获得MyAttribute并添加到myClass，并添加到classMap,详见generateSystemWithStaticMember */
         ListIterator<ClassObject> classIterator1 = systemObject.getClassListIterator();
         while(classIterator1.hasNext()) {
             ClassObject co = classIterator1.next();
@@ -42,6 +43,7 @@ public class MySystem {
             ListIterator<FieldObject> fieldIt = co.getFieldIterator();
             while(fieldIt.hasNext()) {
             	FieldObject fo = fieldIt.next();
+            	// 过滤掉static member
             	if(!fo.isStatic()) {
             		MyAttribute myAttribute = new MyAttribute(co.getName(),fo.getType().toString(),fo.getName());
             		myAttribute.setAccess(fo.getAccess().toString());
@@ -54,13 +56,16 @@ public class MySystem {
             classMap.put(co.getName(),myClass);
         }
         
+        /** 下面这串目的主要是对用户自定义函数获得myMethod并添加到myClass，accessedAttribute（但目前没看到在哪儿有用） */
         ListIterator<ClassObject> classIterator2 = systemObject.getClassListIterator();
         while(classIterator2.hasNext()) {
             ClassObject co = classIterator2.next();
             MyClass myClass = classMap.get(co.getName());
             ListIterator<MethodObject> methodIt = co.getMethodIterator();
+            
             while(methodIt.hasNext()) {
             	MethodObject mo = methodIt.next();
+            	// 过滤掉static的函数
             	if(!mo.isStatic() && systemObject.containsGetter(mo.generateMethodInvocation()) == null &&
             			systemObject.containsSetter(mo.generateMethodInvocation()) == null && systemObject.containsCollectionAdder(mo.generateMethodInvocation()) == null) {
             		MethodInvocationObject delegation = systemObject.containsDelegate(mo.generateMethodInvocation());
@@ -77,6 +82,7 @@ public class MySystem {
             				myMethod.setMethodBody(myMethodBody);
             			}
             			myClass.addMethod(myMethod);
+            			
             			ListIterator<MyAttributeInstruction> attributeInstructionIterator = myMethod.getAttributeInstructionIterator();
             			while(attributeInstructionIterator.hasNext()) {
             				MyAttributeInstruction myInstruction = attributeInstructionIterator.next();
@@ -94,6 +100,7 @@ public class MySystem {
         }
     }
 
+    /** 生成具有静态成员变量的system */
     private void generateSystemWithStaticMembers() {
     	/** 下面这串目的是对自定义的类获得MyAttribute并添加到myClass，并添加到classMap */
     	// 这个循环，对class进行处理

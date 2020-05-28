@@ -4,20 +4,22 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 
 public class SystemEntityPlacement {
-    private Map<String,ClassEntityPlacement> entityPlacementMap;
+    private Map<String,ClassEntityPlacement> entityPlacementMap;	// entity的名字和它所含的class entity
 
     public SystemEntityPlacement() {
         entityPlacementMap = new LinkedHashMap<String,ClassEntityPlacement>();
     }
 
     public ClassEntityPlacement getClassEntityPlacement(String className) {
+    	ClassEntityPlacement classentityplaeccment = null;
         if(entityPlacementMap.containsKey(className)) {
-            return entityPlacementMap.get(className);
+        	classentityplaeccment = entityPlacementMap.get(className);
         }
         else {
             entityPlacementMap.put(className,new ClassEntityPlacement());
-            return entityPlacementMap.get(className);
+            classentityplaeccment = entityPlacementMap.get(className);
         }
+        return classentityplaeccment;
     }
 
     public void putClassEntityPlacement(String className, ClassEntityPlacement classEntityPlacement) {
